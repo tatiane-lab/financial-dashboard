@@ -1,28 +1,25 @@
 import { Routes } from '@angular/router';
-import { authGuard } from './core/auth/auth.guard';
+import { authGuard, guestGuard } from './core/auth/auth.guard';
 
 export const routes: Routes = [
   {
     path: 'login',
-    loadComponent: () =>
-      import('./features/login/login.component').then((m) => m.LoginComponent),
+    title: 'Entrar · Finanças',
+    canActivate: [guestGuard],
+    loadComponent: () => import('./features/login/login.component').then((m) => m.LoginComponent),
   },
   {
     path: 'dashboard',
+    title: 'Visão geral · Finanças',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./features/dashboard/dashboard.component').then(
-        (m) => m.DashboardComponent
-      ),
+    loadComponent: () => import('./features/dashboard/dashboard.component').then((m) => m.DashboardComponent),
   },
   {
     path: 'transactions',
+    title: 'Transações · Finanças',
     canActivate: [authGuard],
-    loadComponent: () =>
-      import('./features/transactions/transactions.component').then(
-        (m) => m.TransactionsComponent
-      ),
+    loadComponent: () => import('./features/transactions/transactions.component').then((m) => m.TransactionsComponent),
   },
-  { path: '', redirectTo: '/dashboard', pathMatch: 'full' },
-  { path: '**', redirectTo: '/dashboard' },
+  { path: '', redirectTo: 'dashboard', pathMatch: 'full' },
+  { path: '**', redirectTo: 'dashboard' },
 ];

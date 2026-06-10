@@ -1,7 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 import { Router } from '@angular/router';
-import { tap, catchError } from 'rxjs/operators';
+import { finalize, tap } from 'rxjs/operators';
 
 export interface AuthUser {
   id: string;
@@ -18,15 +18,15 @@ export interface LoginCredentials {
 @Injectable({ providedIn: 'root' })
 export class AuthService {
   private readonly TOKEN_KEY = 'finance_auth_token';
-  private http = inject(HttpClient);
-  private router = inject(Router);
+  private readonly http = inject(HttpClient);
+  private readonly router = inject(Router);
 
-  private _currentUser = signal<AuthUser | null>(null);
-  private _isLoading = signal(false);
+  private readonly _currentUser = signal<AuthUser | null>(null);
+  private readonly _isLoading = signal(false);
 
-  currentUser = this._currentUser.asReadonly();
-  isAuthenticated = computed(() => this._currentUser() !== null);
-  isLoading = this._isLoading.asReadonly();
+  readonly currentUser = this._currentUser.asReadonly();
+  readonly isAuthenticated = computed(() => this._currentUser() !== null);
+  readonly isLoading = this._isLoading.asReadonly();
 
   constructor() {
     this.loadUserFromToken();
@@ -34,43 +34,59 @@ export class AuthService {
 
   login(credentials: LoginCredentials) {
     this._isLoading.set(true);
-    return this.http
-      .post<{ token: string; user: AuthUser }>('/api/auth/login', credentials)
-      .pipe(
-        tap(({ token, user }) => {
-          localStorage.setItem(this.TOKEN_KEY, token);
-          this._currentUser.set(user);
-          this._isLoading.set(false);
-        }),
-        catchError((err) => {
-          this._isLoading.set(false);
-          throw err;
-        })
-      );
+    return this.http.post<{ token: string; user: AuthUser }>('/api/auth/login', credentials).pipe(
+      tap(({ token, user }) => {
+        this.storeToken(token);
+        this._currentUser.set(user);
+      }),
+      finalize(() => this._isLoading.set(false)),
+    );
   }
 
   logout(): void {
-    localStorage.removeItem(this.TOKEN_KEY);
-    this._currentUser.set(null);
-    this.router.navigate(['/login']);
+    this.clearSession();
+    void this.router.navigate(['/login']);
   }
 
   getToken(): string | null {
-    return localStorage.getItem(this.TOKEN_KEY);
+    try {
+      return localStorage.getItem(this.TOKEN_KEY);
+    } catch {
+      return null;
+    }
+  }
+
+  private storeToken(token: string): void {
+    try {
+      localStorage.setItem(this.TOKEN_KEY, token);
+    } catch {
+      /* armazenamento indisponível: sessão vive só em memória */
+    }
+  }
+
+  private clearSession(): void {
+    try {
+      localStorage.removeItem(this.TOKEN_KEY);
+    } catch {
+      /* noop */
+    }
+    this._currentUser.set(null);
   }
 
   private loadUserFromToken(): void {
     const token = this.getToken();
     if (!token) return;
     try {
-      const payload = JSON.parse(atob(token.split('.')[1]));
+      const segment = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+      const bytes = Uint8Array.from(atob(segment), (c) => c.charCodeAt(0));
+      const payload = JSON.parse(new TextDecoder().decode(bytes));
       if (payload.exp * 1000 > Date.now()) {
         this._currentUser.set(payload.user as AuthUser);
       } else {
-        this.logout();
+        this.clearSession();
       }
     } catch {
-      this.logout();
+      this.clearSession();
     }
   }
 }
