@@ -1,0 +1,76 @@
+<div class="table-wrap" [attr.aria-busy]="loading()">
+  <table class="table">
+    <thead>
+      <tr>
+        @for (col of columns(); track col.key) {
+          <th scope="col" [class.num]="col.align === 'right'" [attr.aria-sort]="col.sortable ? ariaSort(col.key) : null">
+            @if (col.sortable) {
+              <button type="button" class="th-btn" [class.active]="sort()?.column === col.key" (click)="toggleSort(col)">
+                {{ col.label }} <span class="sort-icon" aria-hidden="true">{{ sortIcon(col.key) }}</span>
+              </button>
+            } @else {
+              {{ col.label }}
+            }
+          </th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @if (loading()) {
+        @for (r of skeletonRows(); track $index) {
+          <tr>
+            @for (col of columns(); track col.key) {
+              <td><span class="skeleton line"></span></td>
+            }
+          </tr>
+        }
+      } @else {
+        @for (row of rows(); track row['id'] ?? $index) {
+          <tr>
+            @for (col of columns(); track col.key) {
+              <td [class.num]="col.align === 'right'" [attr.data-label]="col.label">
+                @if (cell(); as tpl) {
+                  <ng-container [ngTemplateOutlet]="tpl" [ngTemplateOutletContext]="{ $implicit: row, column: col }" />
+                } @else {
+                  {{ display(row, col.key) }}
+                }
+              </td>
+            }
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+
+  @if (!loading() && rows().length === 0) {
+    <div class="empty-inline">
+      <ng-content select="[empty]" />
+    </div>
+  }
+</div>
+
+<nav class="pager" aria-label="Paginação">
+  <span class="pager-info">
+    @if (total() > 0) { Mostrando <b>{{ firstItem() }}–{{ lastItem() }}</b> de <b>{{ total() }}</b> } @else { Sem resultados }
+  </span>
+  <label class="pager-size">
+    Linhas
+    <select [value]="pageSize()" (change)="onPageSize($event)">
+      @for (opt of pageSizeOptions(); track opt) {
+        <option [value]="opt" [selected]="opt === pageSize()">{{ opt }}</option>
+      }
+    </select>
+  </label>
+  <div class="pager-buttons">
+    <button type="button" class="btn btn-ghost btn-sm" [disabled]="page() === 0" (click)="goTo(page() - 1)" aria-label="Página anterior">‹</button>
+    @for (p of pageButtons(); track $index) {
+      @if (p === null) {
+        <span class="pager-gap">…</span>
+      } @else {
+        <button type="button" class="btn btn-sm" [class.btn-primary]="p === page()" [class.btn-ghost]="p !== page()"
+          [attr.aria-current]="p === page() ? 'page' : null" (click)="goTo(p)">{{ p + 1 }}</button>
+      }
+    }
+    <button type="button" class="btn btn-ghost btn-sm" [disabled]="page() >= totalPages() - 1" (click)="goTo(page() + 1)" aria-label="Próxima página">›</button>
+  </div>
+</nav>
