@@ -1,0 +1,92 @@
+<header class="page-head">
+  <div>
+    <h1>Visão geral</h1>
+    <p class="muted">Desempenho financeiro de {{ rangeLabel() }}</p>
+  </div>
+  <div class="segmented" role="group" aria-label="Período">
+    @for (p of periods; track p.value) {
+      <button type="button" [class.active]="period() === p.value" [attr.aria-pressed]="period() === p.value" (click)="setPeriod(p.value)">{{ p.label }}</button>
+    }
+  </div>
+</header>
+
+@switch (store.status()) {
+  @case ('error') {
+    <div class="state card" role="alert">
+      <div class="state-icon" aria-hidden="true">!</div>
+      <h2>Não foi possível carregar os dados</h2>
+      <p class="muted">{{ store.error() }}</p>
+      <button type="button" class="btn btn-primary" (click)="store.load(true)">Tentar novamente</button>
+    </div>
+  }
+  @case ('success') {
+    @if (isEmpty()) {
+      <div class="state card">
+        <div class="state-icon" aria-hidden="true">∅</div>
+        <h2>Nenhuma movimentação neste período</h2>
+        <p class="muted">Escolha um período maior para ver os números.</p>
+      </div>
+    } @else {
+      <section class="kpi-grid" aria-label="Indicadores">
+        @for (k of kpis(); track k.key) {
+          <article class="card kpi">
+            <span class="kpi-label">{{ k.label }}</span>
+            <strong class="kpi-value" [class.pos]="k.tone === 'positive'" [class.neg]="k.tone === 'negative'">{{ k.value }}</strong>
+            <span class="kpi-delta">
+              <span class="chip" [class]="'chip ' + deltaClass(k)">{{ deltaText(k) }}</span>
+              <small class="muted">{{ k.hint }}</small>
+            </span>
+          </article>
+        }
+      </section>
+
+      <section class="grid-2-1">
+        <article class="card">
+          <h2 class="card-title">Saldo acumulado</h2>
+          <app-line-chart [height]="340" [labels]="labels()" [tooltipLabels]="fullLabels()" [series]="balanceSeries()" ariaLabel="Evolução do saldo acumulado no período" />
+        </article>
+        <article class="card">
+          <h2 class="card-title">Despesas por categoria</h2>
+          <app-donut-chart [items]="expenseShares()" centerLabel="Despesas" ariaLabel="Distribuição das despesas por categoria" />
+        </article>
+      </section>
+
+      <section class="grid-2-1">
+        <article class="card">
+          <h2 class="card-title">
+            Receitas x despesas
+            <span class="legend-inline"><i style="background: var(--chart-2)"></i>Receitas <i style="background: var(--chart-4)"></i>Despesas</span>
+          </h2>
+          <app-bar-chart [height]="340" [labels]="labels()" [tooltipLabels]="fullLabels()" [series]="flowSeries()" ariaLabel="Receitas e despesas por período" />
+        </article>
+        <article class="card">
+          <h2 class="card-title">Últimas movimentações <a routerLink="/transactions" class="link">Ver todas</a></h2>
+          <ul class="recent">
+            @for (t of recent(); track t.id) {
+              <li>
+                <span class="recent-main">
+                  <b>{{ t.description }}</b>
+                  <small class="muted">{{ shortDate(t.date) }} · {{ t.category }}</small>
+                </span>
+                <span class="amount" [class.pos]="t.type === 'credit'" [class.neg]="t.type === 'debit'">
+                  {{ t.type === 'credit' ? '+' : '−' }}{{ brl(t.amount) }}
+                </span>
+              </li>
+            }
+          </ul>
+        </article>
+      </section>
+    }
+  }
+  @default {
+    <div class="kpi-grid" aria-busy="true" aria-label="Carregando">
+      @for (s of skeletons; track s) {
+        <div class="card kpi"><span class="skeleton line w40"></span><span class="skeleton line big"></span><span class="skeleton line w60"></span></div>
+      }
+    </div>
+    <div class="grid-2-1">
+      <div class="card"><span class="skeleton block"></span></div>
+      <div class="card"><span class="skeleton block"></span></div>
+    </div>
+  }
+}

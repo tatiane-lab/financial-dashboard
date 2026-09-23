@@ -1,0 +1,90 @@
+<header class="page-head">
+  <div>
+    <h1>Transações</h1>
+    <p class="muted">Pesquise, filtre e exporte as movimentações da empresa.</p>
+  </div>
+  <button type="button" class="btn btn-primary" (click)="exportCsv()" [disabled]="filtered().length === 0">
+    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 21h16" /></svg>
+    Exportar CSV
+  </button>
+</header>
+
+@if (store.status() === 'error') {
+  <div class="state card" role="alert">
+    <div class="state-icon" aria-hidden="true">!</div>
+    <h2>Não foi possível carregar as transações</h2>
+    <p class="muted">{{ store.error() }}</p>
+    <button type="button" class="btn btn-primary" (click)="store.load(true)">Tentar novamente</button>
+  </div>
+} @else {
+  <form class="card filters" [formGroup]="filterForm" (submit)="$event.preventDefault()">
+    <div class="field grow">
+      <label for="search">Buscar</label>
+      <input id="search" type="search" formControlName="search" placeholder="Descrição ou categoria" />
+    </div>
+    <div class="field">
+      <label for="category">Categoria</label>
+      <select id="category" formControlName="category">
+        <option value="all">Todas</option>
+        @for (c of categories; track c) { <option [value]="c">{{ c }}</option> }
+      </select>
+    </div>
+    <div class="field">
+      <label for="type">Tipo</label>
+      <select id="type" formControlName="type">
+        <option value="all">Todos</option>
+        <option value="credit">Receitas</option>
+        <option value="debit">Despesas</option>
+      </select>
+    </div>
+    <div class="field">
+      <label for="period">Período</label>
+      <select id="period" formControlName="period">
+        @for (p of periods; track p.value) { <option [value]="p.value">{{ p.label }}</option> }
+      </select>
+    </div>
+    <button type="button" class="btn btn-ghost" (click)="resetFilters()" [disabled]="!hasActiveFilters()">Limpar</button>
+  </form>
+
+  <section class="kpi-grid compact" aria-label="Resumo do filtro">
+    <article class="card kpi"><span class="kpi-label">Movimentações</span><strong class="kpi-value">{{ summary().count }}</strong></article>
+    <article class="card kpi"><span class="kpi-label">Entradas</span><strong class="kpi-value pos">{{ brl(summary().revenue) }}</strong></article>
+    <article class="card kpi"><span class="kpi-label">Saídas</span><strong class="kpi-value neg">{{ brl(summary().expenses) }}</strong></article>
+    <article class="card kpi"><span class="kpi-label">Saldo</span><strong class="kpi-value" [class.pos]="summary().net >= 0" [class.neg]="summary().net < 0">{{ brl(summary().net) }}</strong></article>
+  </section>
+
+  <section class="card table-card">
+    <app-data-table
+      [columns]="columns"
+      [rows]="pageRows()"
+      [total]="filtered().length"
+      [page]="currentPage()"
+      [pageSize]="pageSize()"
+      [sort]="sort()"
+      [loading]="store.isLoading() || store.status() === 'idle'"
+      (pageChange)="page.set($event)"
+      (pageSizeChange)="onPageSize($event)"
+      (sortChange)="onSort($event)"
+    >
+      <ng-template #cell let-row let-col="column">
+        @let tx = asTx(row);
+        @switch (col.key) {
+          @case ('date') { {{ formatDate(tx.date) }} }
+          @case ('description') {
+            <span class="desc"><b>{{ tx.description }}</b><small class="muted">{{ tx.id }}</small></span>
+          }
+          @case ('category') { <span class="badge" [class.badge-in]="tx.type === 'credit'" [class.badge-out]="tx.type === 'debit'">{{ tx.category }}</span> }
+          @case ('amount') {
+            <span class="amount" [class.pos]="tx.type === 'credit'" [class.neg]="tx.type === 'debit'">{{ tx.type === 'credit' ? '+' : '−' }}{{ brl(tx.amount) }}</span>
+          }
+        }
+      </ng-template>
+      <div empty class="state-inline">
+        <div class="state-icon" aria-hidden="true">∅</div>
+        <b>Nenhuma transação encontrada</b>
+        <span class="muted">Ajuste a busca ou os filtros.</span>
+        <button type="button" class="btn btn-ghost btn-sm" (click)="resetFilters()">Limpar filtros</button>
+      </div>
+    </app-data-table>
+  </section>
+}
